@@ -9,3 +9,4 @@ $ colcon build --packages-select ros2_cpp_racecar && ros2 run ros2_cpp_racecar r
 # TODO
 - Marker Publisher
 - Connecting Planner
+- Declaring Parameters
