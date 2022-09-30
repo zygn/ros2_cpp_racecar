@@ -7,6 +7,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "tf2_msgs/msg/tf_message.hpp"
 
 using namespace std::chrono_literals;
 
@@ -26,6 +27,10 @@ class Racecar : public rclcpp::Node
 
       odom_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "ego_racecar/odom", 10, std::bind(&Racecar::odom_callback, this, std::placeholders::_1));
+
+      tf_subscription_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
+        "tf", 10, std::bind(&Racecar::tf_callback, this, std::placeholders::_1));
+  
       
     }
     
@@ -33,6 +38,7 @@ class Racecar : public rclcpp::Node
 
     sensor_msgs::msg::LaserScan scan_data;
     nav_msgs::msg::Odometry odom_data;
+    tf2_msgs::msg::TFMessage tf_data;
 
     void timer_callback()
     {
@@ -42,10 +48,10 @@ class Racecar : public rclcpp::Node
       // speed, steer = driving(scan_data, odom_data)
 
       // connect driving fuction 
-      message.drive.speed = 1.0;
+      message.drive.speed = 0.0;
       message.drive.steering_angle = 0.0;
 
-      publisher_->publish(message);
+      // publisher_->publish(message);
     }
 
     void scan_callback(sensor_msgs::msg::LaserScan::SharedPtr msg) 
@@ -72,10 +78,18 @@ class Racecar : public rclcpp::Node
       // RCLCPP_INFO(this->get_logger(), "test value: '%f'", odom_data.pose.pose.position.x);
     }
 
+    void tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg)
+    {
+      tf_data.transforms = msg->transforms;
+
+      // RCLCPP_INFO(this->get_logger(), "tf_data.transforms[0].transform.rotation.w:'%f'", tf_data.transforms[0].transform.rotation.w);
+    }
+
     rclcpp::TimerBase::SharedPtr timer_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr publisher_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscription_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_;
+    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_subscription_;
 
 };
 
