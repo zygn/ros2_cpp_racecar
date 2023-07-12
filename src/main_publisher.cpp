@@ -269,7 +269,7 @@ int main(int argc, char * argv[])
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<Racecar>() );
   rclcpp::shutdown();
-  finally();
+  //finally();
  
   return 0;
 }
