@@ -1,12 +1,19 @@
 # ros2_cpp_racecar
 F1TENTH Racecar driving algorithm planner binding for ROS2 
 
+# Installation
+```bash
+$ cd colcon_ws/src
+$ git clone https://github.com/zygn/ros2_cpp_racecar
+$ cd .. && colcon build --packages-select ros2_cpp_racecar
+```
+
 # Run
-```command
-$ colcon build --packages-select ros2_cpp_racecar && ros2 run ros2_cpp_racecar racecar
+```base 
+$ ros2 run ros2_cpp_racecar racecar_cpp
 ```
 
 # TODO
 - Marker Publisher
-- Connecting Planner
+- Make Launch file
 - Declaring Parameters
