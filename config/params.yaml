@@ -1,0 +1,16 @@
+racecar_cpp:
+  ros__parameters:
+    # Constants
+    bubble_radius: 120
+    preprocess_conv_size: 70
+    best_point_conv_size: 20
+    maximum_lidar_distance: 8.0
+    straight_speed: 4.0
+    corners_speed: 1.0
+    robot_scale: 0.325
+
+    # Topic 
+    scan_topic: /scan 
+    odom_topic: /odom 
+    drive_topic: /drive
+    tf_topic: /tf_static

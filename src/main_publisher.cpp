@@ -24,24 +24,48 @@ class Racecar : public rclcpp::Node
 
     Racecar(): Node("racecar")
     {
-      publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
+      this->declare_parameter("bubble_radius", 120);
+      int br_ = this->get_parameter("bubble_radius").as_int();
+      this->declare_parameter("preprocess_conv_size", 70);
+      int pcs_ = this->get_parameter("preprocess_conv_size").as_int();
+      this->declare_parameter("best_point_conv_size", 20);
+      int bpcs_ = this->get_parameter("best_point_conv_size").as_int();
+      this->declare_parameter("maximum_lidar_distance", 8.0);
+      double mld_ = this->get_parameter("maximum_lidar_distance").as_double();
+      this->declare_parameter("straight_speed", 4.0);
+      double ss_ = this->get_parameter("straight_speed").as_double();
+      this->declare_parameter("corners_speed", 1.0);
+      double cs_ = this->get_parameter("corners_speed").as_double();
+      this->declare_parameter("robot_scale", 0.325);
+      double rs_ = this->get_parameter("robot_scale").as_double();
+
+      Racecar::setup_parameter(br_, pcs_, bpcs_, mld_, ss_, cs_, rs_);
+
+      this->declare_parameter("scan_topic", "/scan");
+      std::string scan_topic_ = this->get_parameter("scan_topic").as_string();
+      this->declare_parameter("odom_topic", "/odom");
+      std::string odom_topic_ = this->get_parameter("odom_topic").as_string();
+      this->declare_parameter("drive_topic", "/drive");
+      std::string drive_topic_ = this->get_parameter("drive_topic").as_string();
+      this->declare_parameter("tf_topic", "/tf_static");
+      std::string tf_topic_ = this->get_parameter("tf_topic").as_string();
+
+      publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(drive_topic_, 10);
+      
       timer_ = this->create_wall_timer(
         10ms, std::bind(&Racecar::timer_callback, this));
 
       scan_subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "scan", rclcpp::SensorDataQoS(), std::bind(&Racecar::scan_callback, this, std::placeholders::_1));
+        scan_topic_, rclcpp::SensorDataQoS(), std::bind(&Racecar::scan_callback, this, std::placeholders::_1));
 
       odom_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odom", rclcpp::SensorDataQoS(), std::bind(&Racecar::odom_callback, this, std::placeholders::_1));
+        odom_topic_, rclcpp::SensorDataQoS(), std::bind(&Racecar::odom_callback, this, std::placeholders::_1));
 
       tf_subscription_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-        "tf_static", rclcpp::SensorDataQoS(), std::bind(&Racecar::tf_callback, this, std::placeholders::_1));
+        this->get_parameter("tf_topic").as_string(), rclcpp::SensorDataQoS(), std::bind(&Racecar::tf_callback, this, std::placeholders::_1));
 
     }
 
-
-
-    
 
   private:
 
@@ -49,16 +73,29 @@ class Racecar : public rclcpp::Node
     nav_msgs::msg::Odometry odom_data;
     tf2_msgs::msg::TFMessage tf_data;
 
-    const int BUBBLE_RADIUS = 120;
-    const int PREPROCESS_CONV_SIZE = 70;
-    const int BEST_POINT_CONV_SIZE = 20;
+  
     const double PI = 3.14159265358979323846;
-    const double MAX_LIDAR_DIST = 8.0;
     const double STRAIGHTS_STEERING_ANGLE = PI / 18;
-    double STRAIGHTS_SPEED = 4.0;
-    double CORNERS_SPEED = 1.0;
+    int BUBBLE_RADIUS;
+    int PREPROCESS_CONV_SIZE;
+    int BEST_POINT_CONV_SIZE;
+    double MAX_LIDAR_DIST;
+    double STRAIGHTS_SPEED;
+    double CORNERS_SPEED;
     double radians_per_elem = 0.0;
-    double robot_scale = 0.3302;
+    double robot_scale;
+
+
+    void setup_parameter(int br, int pcs, int bpcs, double mld, double ss, double cs, double rs) {
+      BUBBLE_RADIUS = br;
+      PREPROCESS_CONV_SIZE = pcs;
+      BEST_POINT_CONV_SIZE = bpcs;
+      MAX_LIDAR_DIST = mld;
+      STRAIGHTS_SPEED = ss;
+      CORNERS_SPEED = cs;
+      robot_scale = rs;
+      return;
+    }
 
     void timer_callback()
     { 
