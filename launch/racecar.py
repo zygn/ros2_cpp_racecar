@@ -16,7 +16,6 @@ def generate_launch_description():
     ld.add_action(
         Node(
             package='ros2_cpp_racecar',
-            namespace='ros2_cpp_racecar',
             executable='racecar_cpp',
             name='racecar',
             output='screen',

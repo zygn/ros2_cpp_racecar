@@ -8,6 +8,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "sensor_msgs/msg/joy.hpp"
 #include "tf2_msgs/msg/tf_message.hpp"
 
 using namespace std::chrono_literals;
@@ -24,19 +25,19 @@ class Racecar : public rclcpp::Node
 
     Racecar(): Node("racecar")
     {
-      this->declare_parameter("bubble_radius", 120);
+      this->declare_parameter("bubble_radius", rclcpp::PARAMETER_INTEGER);
       int br_ = this->get_parameter("bubble_radius").as_int();
-      this->declare_parameter("preprocess_conv_size", 70);
+      this->declare_parameter("preprocess_conv_size", rclcpp::PARAMETER_INTEGER);
       int pcs_ = this->get_parameter("preprocess_conv_size").as_int();
-      this->declare_parameter("best_point_conv_size", 20);
+      this->declare_parameter("best_point_conv_size", rclcpp::PARAMETER_INTEGER);
       int bpcs_ = this->get_parameter("best_point_conv_size").as_int();
-      this->declare_parameter("maximum_lidar_distance", 8.0);
+      this->declare_parameter("maximum_lidar_distance", rclcpp::PARAMETER_DOUBLE);
       double mld_ = this->get_parameter("maximum_lidar_distance").as_double();
-      this->declare_parameter("straight_speed", 4.0);
+      this->declare_parameter("straight_speed", rclcpp::PARAMETER_DOUBLE);
       double ss_ = this->get_parameter("straight_speed").as_double();
-      this->declare_parameter("corners_speed", 1.0);
+      this->declare_parameter("corners_speed", rclcpp::PARAMETER_DOUBLE);
       double cs_ = this->get_parameter("corners_speed").as_double();
-      this->declare_parameter("robot_scale", 0.325);
+      this->declare_parameter("robot_scale", rclcpp::PARAMETER_DOUBLE);
       double rs_ = this->get_parameter("robot_scale").as_double();
 
       Racecar::setup_parameter(br_, pcs_, bpcs_, mld_, ss_, cs_, rs_);
@@ -49,6 +50,8 @@ class Racecar : public rclcpp::Node
       std::string drive_topic_ = this->get_parameter("drive_topic").as_string();
       this->declare_parameter("tf_topic", "/tf_static");
       std::string tf_topic_ = this->get_parameter("tf_topic").as_string();
+      this->declare_parameter("joy_topic", "/joy");
+      std::string joy_topic_ = this->get_parameter("joy_topic").as_string(); 
 
       publisher_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(drive_topic_, 10);
       
@@ -61,8 +64,11 @@ class Racecar : public rclcpp::Node
       odom_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
         odom_topic_, rclcpp::SensorDataQoS(), std::bind(&Racecar::odom_callback, this, std::placeholders::_1));
 
+      joy_subscription_ = this->create_subscription<sensor_msgs::msg::Joy>(
+        joy_topic_, rclcpp::SensorDataQoS(), std::bind(&Racecar::joy_callback, this, std::placeholders::_1));
+
       tf_subscription_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-        this->get_parameter("tf_topic").as_string(), rclcpp::SensorDataQoS(), std::bind(&Racecar::tf_callback, this, std::placeholders::_1));
+        tf_topic_, rclcpp::SensorDataQoS(), std::bind(&Racecar::tf_callback, this, std::placeholders::_1));
 
     }
 
@@ -84,6 +90,7 @@ class Racecar : public rclcpp::Node
     double CORNERS_SPEED;
     double radians_per_elem = 0.0;
     double robot_scale;
+    int safety = 0;
 
 
     void setup_parameter(int br, int pcs, int bpcs, double mld, double ss, double cs, double rs) {
@@ -97,10 +104,24 @@ class Racecar : public rclcpp::Node
       return;
     }
 
+    void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg) {
+      safety = msg->buttons[7];
+    }
+
     void timer_callback()
     { 
       if (scan_data.ranges.size() == 0) {
         RCLCPP_WARN(this->get_logger(), "scan data size is '%d' skipping this callback.", scan_data.ranges.size());
+        return;
+      }
+
+      if (safety == 0) {
+        // Topic sensor_msg/msg/Joy->buttons[7] is RB Button 
+        RCLCPP_WARN_ONCE(this->get_logger(), "Skipping this callback.. Press joy [RB] button");
+        auto message = ackermann_msgs::msg::AckermannDriveStamped();
+        message.drive.speed = 0.0;
+        message.drive.steering_angle = 0.0;
+        publisher_->publish(message);
         return;
       }
 
@@ -139,17 +160,17 @@ class Racecar : public rclcpp::Node
       std::vector<float> pol = msg->ranges;
 
       /// remove this block when your lidar is running okay...
-      // for (int i=0; i>pol.size(); i++) {
-      //   if (i>5 && pol[i] == 0.0 && (i<pol.size()-5)) {
-      //     std::vector<float> blk;
-      //     for (int j=i-5; j<i+5; j++) {
-      //       if (pol[j] != 0.0) {
-      //         blk.push_back(pol[j]);
-      //       }
-      //     }
-      //     pol[i] = blk.empty() ? 0.2 : std::accumulate(blk.begin(), blk.end(), 0.0) / blk.size();
-      //   }
-      // }
+      for (int i=0; i>pol.size(); i++) {
+        if (i>5 && pol[i] == 0.0 && (i<pol.size()-5)) {
+          std::vector<float> blk;
+          for (int j=i-5; j<i+5; j++) {
+            if (pol[j] != 0.0) {
+              blk.push_back(pol[j]);
+            }
+          }
+          pol[i] = blk.empty() ? 0.2 : std::accumulate(blk.begin(), blk.end(), 0.0) / blk.size();
+        }
+      }
       ///
 
       scan_data.ranges = pol;
@@ -297,6 +318,7 @@ class Racecar : public rclcpp::Node
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscription_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscription_;
 
 
 };
